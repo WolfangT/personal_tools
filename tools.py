@@ -39,17 +39,17 @@ def inv_sum(*vals):
 
 
 def display_single(val):
-    return f"{round(val, 6):11}"
+    return f"{round(abs(val), 6):11}"
 
 
-def display_polar(cmplx):
+def display_polar(cmplx, unit=""):
     mag, rad = cmath.polar(cmplx)
     deg = degrees(rad)
-    return f"{round(mag,6):11} ∠ {round(deg, 4):10}°"
+    return f"{round(mag,6):11} ∠ {round(deg, 2):7}° {unit}"
 
 
-def display_rect(cmplx):
-    return f"{round(cmplx.real,6):11} + {round(cmplx.imag, 6):11} J"
+def display_rect(cmplx, u_real="", u_imag="J", u_fin=""):
+    return f"{round(cmplx.real,6):11} {u_real} + {round(cmplx.imag, 6):11} {u_imag} {u_fin}"
 
 
 def cambio_base(val, Sn, Vn, Sb, Vb):
@@ -265,44 +265,55 @@ class Linea(Elemento):
     Args:
         Sn: Potencia Nominal
         Vn: Voltaje Nominal
+        In: Corriente Nominal
 
-        Rn: Parametro de Resistencia de la linea en valor absoluto
-        Xn: Parametro de REactancia de la linea en valor absoluto
-        Gn: Parametro de Conductancia de la linea en valor absoluto
-        Bn: Parametro de Suceptancia de la linea en valor absoluto
+        L: Longitud (Kilometros)
+
+        Rn: Parametro de Resistencia de la linea en valor absoluto (por kilmetro)
+        Xn: Parametro de Reactancia de la linea en valor absoluto (por kilmetro)
+        Gn: Parametro de Conductancia de la linea en valor absoluto (por kilmetro)
+        Bn: Parametro de Suceptancia de la linea en valor absoluto (por kilmetro)
 
         bp: Barra del lado primario
         bp: Barra del lado secundario
     """
 
-    def __init__(self, nombre, *, Sn, Vn, Rn, Xn, Gn, Bn, bp, bs):
+    def __init__(
+        self, nombre, *, Rn, Xn, Gn, Bn, bp, bs, L=1, Sn=None, Vn=None, In=None
+    ):
         super().__init__(nombre)
         self.Sn = Sn
         self.Vn = Vn
-        self.Rn = Rn
-        self.Xn = Xn
-        self.Gn = Gn
-        self.Bn = Bn
+        self.In = In
+        self.L = L
+        self.Rn = Rn * L
+        self.Xn = Xn * L
+        self.Gn = Gn * L
+        self.Bn = Bn * L
         self.bp = bp
         self.bs = bs
         self.R = self.Rn / self.bp.Zb
         self.X = self.Xn / self.bp.Zb
         self.G = self.Gn / self.bp.Yb
         self.B = self.Bn / self.bp.Yb
-        self.Y = 1 / complex(self.R, self.X)
 
     def __str__(self):
         return (
-            f"{self.nombre}:\n"
-            f"  Rn: {display_single(self.Rn)} Ω\n"
-            f"  Xn: {display_single(self.Xn)} J Ω\n"
-            f"  Gn: {display_single(self.Gn)} ℧\n"
-            f"  Bn: {display_single(self.Bn)} J ℧\n"
-            f"  R: {display_single(self.R)} Ω pu\n"
-            f"  X: {display_single(self.X)} J Ω pu\n"
-            f"  G: {display_single(self.G)} ℧ pu\n"
-            f"  B: {display_single(self.B)} J ℧ pu\n"
-            f"  Y: {display_rect(self.Y)} ℧ pu\n"
+            (f"{self.nombre}:\n" f" Valores Nominales:\n")
+            + (f"  Sn:  {display_single(self.Sn)} VA\n" if self.Sn else "")
+            + (f"  Vn:  {display_single(self.Vn)} V\n" if self.Vn else "")
+            + (f"  In:  {display_single(self.In)} A\n" if self.In else "")
+            + (
+                f"  Rn: {display_single(self.Rn)} Ω\n"
+                f"  Xn: {display_single(self.Xn)} J Ω\n"
+                f"  Gn: {display_single(self.Gn)} ℧\n"
+                f"  Bn: {display_single(self.Bn)} J ℧\n"
+                f" Valores PU:\n"
+                f"  R: {display_single(self.R)} Ω pu\n"
+                f"  X: {display_single(self.X)} J Ω pu\n"
+                f"  G: {display_single(self.G)} ℧ pu\n"
+                f"  B: {display_single(self.B)} J ℧ pu\n"
+            )
         )
 
 
@@ -521,6 +532,69 @@ class TransformadorTriple(Elemento):
             + (f"  Zp + Zt: {display_rect(self.Zp+self.Zt)} Ω pu\n" if self.Zs else "")
             + (f"  Zs + Zt: {display_rect(self.Zt+self.Zs)} Ω pu\n" if self.Zt else "")
         )
+
+
+class Valor(complex):
+    TIPOS = {
+        "S": (("W", "VAR", "VA"), "rect"),
+        "V": ((None, None, "V"), "polar"),
+        "I": ((None, None, "A"), "polar"),
+        "Z": ((None, None, "Ω"), "rect"),
+        "Y": ((None, None, "℧"), "rect"),
+    }
+    TIPO = None
+
+    def __new__(cls, name, comp, barra=None):
+        return super().__new__(cls, comp)
+
+    def __init__(self, name, comp, barra=None):
+        self.name = name
+        self.unidad = self.TIPOS[self.TIPO][0] if self.TIPO else ("", " J", "")
+        self.muestra = self.TIPOS[self.TIPO][1] if self.TIPO else "rect"
+        self.barra = barra
+        super().__init__()
+
+    def __str__(self):
+        u_fin = self.unidad[2] + (" pu" if self.barra else "")
+
+        if self.muestra == "rect":
+            if self.unidad[:2] == (None, None):
+                val = display_rect(self, u_fin=u_fin)
+            else:
+                u_r = self.unidad[0] + (" pu" if self.barra else "")
+                u_i = self.unidad[1] + (" pu" if self.barra else "")
+                val = display_rect(self, u_r, u_i)
+        elif self.muestra == "polar":
+            val = display_polar(self, u_fin)
+        return f"{self.name}: {val}"
+
+    def absoluto(self):
+        if self.barra:
+            base = getattr(self.barra, self.TIPO + "b")
+            valor = self * base
+        else:
+            valor = self
+        return self.__class__(self.name, valor).__str__()
+
+
+class S(Valor):
+    TIPO = "S"
+
+
+class V(Valor):
+    TIPO = "V"
+
+
+class I(Valor):
+    TIPO = "I"
+
+
+class Z(Valor):
+    TIPO = "Z"
+
+
+class Y(Valor):
+    TIPO = "Y"
 
 
 def test():

@@ -256,14 +256,65 @@ def examen_1():
     # print(Cs)
 
 
-def main():
+def ejercicio_viernes():
     Sb = 100 * 10 ** 6
     Vb = 230000
     B5 = Barra("Tablaso", Sb=Sb, Vb=Vb)
     B4 = Barra("Morochas", Sb=Sb, Vb=Vb)
     print(B5)
     print(B4)
-    R = 67 * 0.0702 / B5.Zb
+    L45 = Linea(
+        "L45",
+        L=67,
+        Rn=0.0702,
+        Xn=0.465000j,
+        Gn=0,
+        Bn=3.473j * 10 ** -6,
+        In=850,
+        bp=B5,
+        bs=B4,
+    )
+    print(L45)
+    print(V4 := V("V4", rect(0.9662, -16.4), B5))
+    print(V5 := V("V5", rect(0.98636, -11.8), B5))
+    print(I1 := I("I1", V5 * L45.B / 2, B5))
+    print(I2 := I("I2", V4 * L45.B / 2, B5))
+    print(I3 := I("I3", (V5 - V4) / (L45.R + L45.X), B5))
+
+    print(Sent := S("S_ent", V5 * (I1 + I3).conjugate(), B5))
+    print(Ssal := S("S_sal", V4 * (I3 - I2).conjugate(), B5))
+    print(S1 := S("S1", V5 * I1.conjugate(), B5))
+    print(S2 := S("S2", V4 * I2.conjugate(), B5))
+
+    print(Sent.absoluto())
+    print(Ssal.absoluto())
+    print(S1.absoluto())
+    print(S2.absoluto())
+
+
+def main():
+    Sb = 100 * 10 ** 6
+    Vb = 230000
+    B1 = Barra("B1", Sb=Sb, Vb=Vb)
+    B2 = Barra("B2", Sb=Sb, Vb=Vb)
+    B3 = Barra("B3", Sb=Sb, Vb=Vb)
+    B4 = Barra("B4", Sb=Sb, Vb=Vb)
+    B5 = Barra("B5", Sb=Sb, Vb=Vb * 115 / 230)
+    print(B1)
+    print(B5)
+    TX1 = TransformadorTap(
+        "TX1",
+        dt=(1 - 0.96385542),
+        pos=-1,
+        Sn=300 * 10 ** 6,
+        Vp=230000,
+        Vs=115000,
+        Zev=0.06,
+        rel=float("inf"),
+        bp=B3,
+        bs=B5,
+    )
+    print(TX1)
 
 
 if __name__ == "__main__":
