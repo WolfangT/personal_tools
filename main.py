@@ -286,13 +286,13 @@ def ejercicio_viernes():
     print(S1 := S("S1", V5 * I1.conjugate(), B5))
     print(S2 := S("S2", V4 * I2.conjugate(), B5))
 
-    print(Sent.absoluto())
-    print(Ssal.absoluto())
-    print(S1.absoluto())
-    print(S2.absoluto())
+    print(Sent.en_real())
+    print(Ssal.en_real())
+    print(S1.en_real())
+    print(S2.en_real())
 
 
-def main():
+def clase_19_03():
     Sb = 100 * 10 ** 6
     Vb = 230000
     B1 = Barra("B1", Sb=Sb, Vb=Vb)
@@ -301,7 +301,22 @@ def main():
     B4 = Barra("B4", Sb=Sb, Vb=Vb)
     B5 = Barra("B5", Sb=Sb, Vb=Vb * 115 / 230)
     print(B1)
+    print(B2)
+    print(B3)
+    print(B4)
     print(B5)
+    L12 = Linea("L12", R=0.01008, X=0.05040, G=0, B=0.05125 * 2, bp=B1, bs=B2)
+    print(L12)
+    # print(L12.flujo_potencias())
+    L13 = Linea("L13", R=0.00744, X=0.03720, G=0, B=0.03875 * 2, bp=B1, bs=B3)
+    print(L13)
+    # print(L13.flujo_potencias())
+    L24 = Linea("L24", R=0.00744, X=0.03720, G=0, B=0.03875 * 2, bp=B2, bs=B4)
+    print(L24)
+    # print(L24.flujo_potencias())
+    L34 = Linea("L34", R=0.01272, X=0.06360, G=0, B=0.06375 * 2, bp=B3, bs=B4)
+    print(L34)
+    # print(L34.flujo_potencias())
     TX1 = TransformadorTap(
         "TX1",
         dt=(1 - 0.96385542),
@@ -315,6 +330,85 @@ def main():
         bs=B5,
     )
     print(TX1)
+    # print(TX1.flujo_potencias())
+    print(Ic := I("Ic", (-52.3j * 10 ** 6 / B5.Vb).conjugate()))
+    print(Yc := Y("Yc", (Ic / B5.Vb)))
+    print(Ycpu := Y("Yc", Yc / B5.Yb, B5))
+    Ym = np.matrix(
+        [
+            [L12.Yp0 + L12.Yps + L13.Yp0 + L13.Yps, -L12.Yps, -L13.Yps, 0, 0],
+            [-L12.Yps, L12.Ys0 + L12.Yps + L24.Yp0 + L24.Yps, 0, -L24.Yps, 0],
+            [
+                -L13.Yps,
+                0,
+                L13.Yp0 + L13.Ys0 + L34.Yp0 + L34.Yps + TX1.Yps + TX1.Yp0,
+                -L34.Yps,
+                -TX1.Yps,
+            ],
+            [0, -L24.Yps, -L34.Yps, L24.Yps + L24.Ys0 + L34.Yps + L34.Ys0, 0],
+            [0, 0, -TX1.Yps, 0, TX1.Yps + TX1.Ys0 + Ycpu],
+        ]
+    )
+    print(Ym)
+
+
+def main():
+    Sb = 100 * 10 ** 6
+    Vb = 230000
+    print(B1 := Barra("Birch", Sb=Sb, Vb=Vb))
+    B2 = Barra("Elm", Sb=Sb, Vb=Vb)
+    B3 = Barra("Pine", Sb=Sb, Vb=Vb)
+    B4 = Barra("Maple", Sb=Sb, Vb=Vb)
+    print(B5 := Barra("B5", Sb=Sb, Vb=Vb * 115 / 230))
+    print(L12 := Linea("L12", R=0.01008, X=0.05040, G=0, B=0.05125 * 2, bp=B1, bs=B2))
+    # print(L12.flujo_potencias())
+    print(L13 := Linea("L13", R=0.00744, X=0.03720, G=0, B=0.03875 * 2, bp=B1, bs=B3))
+    # print(L13.flujo_potencias())
+    print(L24 := Linea("L24", R=0.00744, X=0.03720, G=0, B=0.03875 * 2, bp=B2, bs=B4))
+    # print(L24.flujo_potencias())
+    print(L34 := Linea("L34", R=0.01272, X=0.06360, G=0, B=0.06375 * 2, bp=B3, bs=B4))
+    # print(L34.flujo_potencias())
+    print(
+        TX1 := TransformadorTap(
+            "TX 5-3",
+            dt=0.2 / 32,
+            pos=+12,
+            Sn=310 * 10 ** 6,
+            Vp=115000,
+            Vs=230000,
+            Zev=0.0625,
+            rel=3.487,
+            bp=B5,
+            bs=B3,
+        )
+    )
+    # print(TX1.flujo_potencias())
+    print(
+        C1 := BancoCapasitores(
+            "C 5-0",
+            bp=B5,
+            Sn=57.5j * 10 ** 6,
+            Vn=TX1.Vp,
+            pj=0.03,
+        )
+    )
+    print(
+        Ym := np.matrix(
+            [
+                [L12.Yp0 + L12.Yps + L13.Yp0 + L13.Yps, -L12.Yps, -L13.Yps, 0, 0],
+                [-L12.Yps, L12.Ys0 + L12.Yps + L24.Yp0 + L24.Yps, 0, -L24.Yps, 0],
+                [
+                    -L13.Yps,
+                    0,
+                    L13.Yp0 + L13.Ys0 + L34.Yp0 + L34.Yps + TX1.Yps + TX1.Yp0,
+                    -L34.Yps,
+                    -TX1.Yps,
+                ],
+                [0, -L24.Yps, -L34.Yps, L24.Yps + L24.Ys0 + L34.Yps + L34.Ys0, 0],
+                [0, 0, -TX1.Yps, 0, TX1.Yps + TX1.Ys0 + C1.Yn],
+            ]
+        )
+    )
 
 
 if __name__ == "__main__":
