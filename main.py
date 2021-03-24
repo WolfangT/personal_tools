@@ -19,7 +19,7 @@ def main():
     # print(L34.flujo_potencias())
     print(
         TX1 := TransformadorTap(
-            "TX 5-3",
+            "TX53",
             dt=0.2 / 32,
             pos=+12,
             Sn=310 * 10 ** 6,
@@ -34,7 +34,7 @@ def main():
     # print(TX1.flujo_potencias())
     print(
         Cx := BancoCapasitores(
-            "C 5-0",
+            "CX1",
             bp=B5,
             Sn=57.5j * 10 ** 6 / B5.Sb,
             Vn=TX1.Vp / B5.Vb,

@@ -392,15 +392,20 @@ class Linea(Elemento):
             f"  {self.X}\n"
             f"  {self.G}\n"
             f"  {self.B}\n"
+            f" Modelo Admitancias en PU:\n"
+            f"  {self.bp.nombre} -> {self.bs.nombre}: {self.Yps}\n"
+            f"  {self.bp.nombre} -> 0: {self.Yp0}\n"
+            f"  {self.bs.nombre} -> 0: {self.Ys0}\n"
+        )
+
+    def en_real(self):
+        return (
+            f"{self.nombre}:\n"
             f" Valores Reales:\n"
             f"  {self.R.en_real()}\n"
             f"  {self.X.en_real()}\n"
             f"  {self.G.en_real()}\n"
             f"  {self.B.en_real()}\n"
-            f" Modelo Admitancias en PU:\n"
-            f"  {self.bp.nombre} -> {self.bs.nombre}: {self.Yps}\n"
-            f"  {self.bp.nombre} -> 0: {self.Yp0}\n"
-            f"  {self.bs.nombre} -> 0: {self.Ys0}\n"
             f" Modelo Admitancias en Real:\n"
             f"  {self.bp.nombre} -> {self.bs.nombre}: {self.Yps.en_real()}\n"
             f"  {self.bp.nombre} -> 0: {self.Yp0.en_real()}\n"
@@ -510,13 +515,16 @@ class TransformadorSimple(Elemento):
         self.Sn = Sn
         self.Vp = Vp
         self.Vs = Vs
-        self.Zev = rect(Zev, degrees(atan(rel)))
+        self.Zev = Z("Zev", rect(Zev, degrees(atan(rel))))
+        self.Zev.muestra = "polar"
         self.bp = bp
         self.bs = bs
-        self.Zp = self.Zev * ((self.Vp / self.bp.Vb) ** 2) * (self.bp.Sb / self.Sn)
-        self.Zs = self.Zev * ((self.Vs / self.bs.Vb) ** 2) * (self.bs.Sb / self.Sn)
-        self.Yp = 1 / self.Zp
-        self.Ys = 1 / self.Zs
+        self.Zen = Z(
+            "Zen",
+            self.Zev * ((self.Vp / self.bp.Vb) ** 2) * (self.bp.Sb / self.Sn),
+            self.bp,
+        )
+        self.Yen = Y("Yen", 1 / self.Zen, self.bp)
 
     def __str__(self):
         return (
@@ -524,11 +532,10 @@ class TransformadorSimple(Elemento):
             f"  Sn:  {display_single(self.Sn)} VA\n"
             f"  Vn:    {display_single(self.Vp)} / {display_single(self.Vs)} V\n"
             f"  Bases: {self.bp.nombre:>11s} / {self.bs.nombre:>11s}\n"
-            f"  Zev: {display_polar(self.Zev)} Ω pu\n"
-            f"  Zp:  {display_rect(self.Zp)} Ω pu\n"
-            f"  Zs:  {display_rect(self.Zs)} Ω pu\n"
-            f"  Yp:  {display_rect(self.Yp)} ℧ pu\n"
-            f"  Ys:  {display_rect(self.Ys)} ℧ pu\n"
+            f" Valores PU:\n"
+            f"  {self.Zev}\n"
+            f"  {self.Zen}\n"
+            f"  {self.Yen}\n"
         )
 
 
@@ -546,13 +553,20 @@ class TransformadorTap(TransformadorSimple):
         self.pos = pos
         self.dt = dt
         super().__init__(nombre, **kwargs)
+        del self.Zen, self.Yen
         self.t = 1 + (self.dt * self.pos)
-        self.Zp = (
-            self.Zev * ((self.Vp * self.t / self.bp.Vb) ** 2) * (self.bp.Sb / self.Sn)
+        self.Zp = Z(
+            "Zp",
+            self.Zev * ((self.Vp * self.t / self.bp.Vb) ** 2) * (self.bp.Sb / self.Sn),
+            self.bp,
         )
-        self.Zs = self.Zev * ((self.Vs / self.bs.Vb) ** 2) * (self.bs.Sb / self.Sn)
-        self.Yp = 1 / self.Zp
-        self.Ys = 1 / self.Zs
+        self.Zs = Z(
+            "Zs",
+            self.Zev * ((self.Vs / self.bs.Vb) ** 2) * (self.bs.Sb / self.Sn),
+            self.bs,
+        )
+        self.Yp = Y("Yp", 1 / self.Zp, self.bp)
+        self.Ys = Y("Ys", 1 / self.Zs, self.bs)
         self.Yps = Y("Y*t", self.Yp * self.t, self.bp)
         self.Ys0 = Y("Y*(1-t)", self.Yp * (1 - self.t), self.bp)
         self.Yp0 = Y("Y*t(t-1)", self.Yp * (self.t ** 2 - self.t), self.bp)
@@ -564,11 +578,12 @@ class TransformadorTap(TransformadorSimple):
             f"  Vn:    {display_single(self.Vp)} / {display_single(self.Vs)} V\n"
             f"  Bases: {self.bp.nombre:>11s} / {self.bs.nombre:>11s}\n"
             f"  t:     {self.t}\n"
-            f"  Zev: {display_polar(self.Zev)} Ω pu\n"
-            f"  Zp:  {display_rect(self.Zp)} Ω pu\n"
-            f"  Zs:  {display_rect(self.Zs)} Ω pu\n"
-            f"  Yp:  {display_rect(self.Yp)} ℧ pu\n"
-            f"  Ys:  {display_rect(self.Ys)} ℧ pu\n"
+            f" Valores PU:\n"
+            f"  {self.Zev}\n"
+            f"  {self.Zp}\n"
+            f"  {self.Zs}\n"
+            f"  {self.Yp}\n"
+            f"  {self.Ys}\n"
             f" Modelo Admitancias:\n"
             f"  {self.Yps}\n"
             f"  {self.Yp0}\n"
@@ -701,13 +716,18 @@ class BancoCapasitores(Elemento):
 
     def __str__(self):
         return (
-            f"{self.nombre}:\n"
+            f"{self.nombre}: ({self.bp.nombre})\n"
             f" Valores PU:\n"
             f"  {self.Sn}\n"
             f"  {self.Vn}\n"
             f"  {self.In}\n"
             f"  {self.Zn}\n"
             f"  {self.Yn}\n"
+        )
+
+    def en_real(self):
+        return (
+            f"{self.nombre}: ({self.bp.nombre})\n"
             f" Valores Reales:\n"
             f"  {self.Sn.en_real()}\n"
             f"  {self.Vn.en_real()}\n"
@@ -730,12 +750,17 @@ class GeneradorIdeal(Elemento):
 
     def __str__(self):
         return (
-            f"{self.nombre}:\n"
+            f"{self.nombre}: ({self.bp.nombre})\n"
             f" Valores PU:\n"
             f"  {self.P}\n"
             f"  {self.V}\n"
             f"  {self.Qmin}\n"
             f"  {self.Qmax}\n"
+        )
+
+    def en_real(self):
+        return (
+            f"{self.nombre}: ({self.bp.nombre})\n"
             f" Valores Reales:\n"
             f"  {self.P.en_real()}\n"
             f"  {self.V.en_real()}\n"
@@ -749,19 +774,17 @@ class CargaIdeal(Elemento):
 
     def __init__(self, nombre, *, bp, Pn, Qn, **kwargs):
         self.bp = bp
-        self.P = S("P", Pn / bp.Sb, bp)
-        self.Q = S("Q", complex(0, Qn) / bp.Sb, bp)
+        self.S = S("Q", complex(Pn, Qn) / bp.Sb, bp)
         super().__init__(nombre, **kwargs)
 
     def __str__(self):
+        return f"{self.nombre}: ({self.bp.nombre})\n" f" Valores PU:\n" f"  {self.S}\n"
+
+    def en_real(self):
         return (
-            f"{self.nombre}:\n"
-            f" Valores PU:\n"
-            f"  {self.P}\n"
-            f"  {self.Q}\n"
+            f"{self.nombre}: ({self.bp.nombre})\n"
             f" Valores Reales:\n"
-            f"  {self.P.en_real()}\n"
-            f"  {self.Q.en_real()}\n"
+            f"  {self.S.en_real()}\n"
         )
 
 
