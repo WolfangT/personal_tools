@@ -386,16 +386,16 @@ class Linea(Elemento):
 
     def __str__(self):
         return (
-            f"{self.nombre}:\n"
-            f" Valores PU:\n"
+            f"{self.nombre}: ({self.bp.nombre} → {self.bs.nombre})\n"
+            f" Valores:\n"
             f"  {self.R}\n"
             f"  {self.X}\n"
             f"  {self.G}\n"
             f"  {self.B}\n"
-            f" Modelo Admitancias en PU:\n"
-            f"  {self.bp.nombre} -> {self.bs.nombre}: {self.Yps}\n"
-            f"  {self.bp.nombre} -> 0: {self.Yp0}\n"
-            f"  {self.bs.nombre} -> 0: {self.Ys0}\n"
+            f" Modelo Admitancias:\n"
+            f"  {self.Yps}\n"
+            f"  {self.Yp0}\n"
+            f"  {self.Ys0}\n"
         )
 
     def en_real(self):
@@ -528,11 +528,11 @@ class TransformadorSimple(Elemento):
 
     def __str__(self):
         return (
-            f"{self.nombre}:\n"
+            f"{self.nombre}: ({self.bp.nombre} → {self.bs.nombre})\n"
             f"  Sn:  {display_single(self.Sn)} VA\n"
             f"  Vn:    {display_single(self.Vp)} / {display_single(self.Vs)} V\n"
             f"  Bases: {self.bp.nombre:>11s} / {self.bs.nombre:>11s}\n"
-            f" Valores PU:\n"
+            f" Valores:\n"
             f"  {self.Zev}\n"
             f"  {self.Zen}\n"
             f"  {self.Yen}\n"
@@ -567,18 +567,17 @@ class TransformadorTap(TransformadorSimple):
         )
         self.Yp = Y("Yp", 1 / self.Zp, self.bp)
         self.Ys = Y("Ys", 1 / self.Zs, self.bs)
-        self.Yps = Y("Y*t", self.Yp * self.t, self.bp)
-        self.Ys0 = Y("Y*(1-t)", self.Yp * (1 - self.t), self.bp)
+        self.Yps = Y("     Y*t", self.Yp * self.t, self.bp)
+        self.Ys0 = Y(" Y*(1-t)", self.Yp * (1 - self.t), self.bp)
         self.Yp0 = Y("Y*t(t-1)", self.Yp * (self.t ** 2 - self.t), self.bp)
 
     def __str__(self):
         return (
-            f"{self.nombre} (Tap {'+' if self.pos >=0 else '-'}{abs(self.pos)}):\n"
-            f"  Sn:    {display_single(self.Sn)} VA\n"
-            f"  Vn:    {display_single(self.Vp)} / {display_single(self.Vs)} V\n"
-            f"  Bases: {self.bp.nombre:>11s} / {self.bs.nombre:>11s}\n"
-            f"  t:     {self.t}\n"
-            f" Valores PU:\n"
+            f"{self.nombre}: ({self.bp.nombre} → {self.bs.nombre})\n"
+            f"  Sn: {display_single(self.Sn)} VA\n"
+            f"  Vn: {display_single(self.Vp)} / {display_single(self.Vs)} V\n"
+            f"  t:  {self.t} (Tap {'+' if self.pos >=0 else '-'}{abs(self.pos)})\n"
+            f" Valores:\n"
             f"  {self.Zev}\n"
             f"  {self.Zp}\n"
             f"  {self.Zs}\n"
@@ -717,7 +716,6 @@ class BancoCapasitores(Elemento):
     def __str__(self):
         return (
             f"{self.nombre}: ({self.bp.nombre})\n"
-            f" Valores PU:\n"
             f"  {self.Sn}\n"
             f"  {self.Vn}\n"
             f"  {self.In}\n"
@@ -728,7 +726,6 @@ class BancoCapasitores(Elemento):
     def en_real(self):
         return (
             f"{self.nombre}: ({self.bp.nombre})\n"
-            f" Valores Reales:\n"
             f"  {self.Sn.en_real()}\n"
             f"  {self.Vn.en_real()}\n"
             f"  {self.In.en_real()}\n"
@@ -751,7 +748,6 @@ class GeneradorIdeal(Elemento):
     def __str__(self):
         return (
             f"{self.nombre}: ({self.bp.nombre})\n"
-            f" Valores PU:\n"
             f"  {self.P}\n"
             f"  {self.V}\n"
             f"  {self.Qmin}\n"
@@ -761,7 +757,6 @@ class GeneradorIdeal(Elemento):
     def en_real(self):
         return (
             f"{self.nombre}: ({self.bp.nombre})\n"
-            f" Valores Reales:\n"
             f"  {self.P.en_real()}\n"
             f"  {self.V.en_real()}\n"
             f"  {self.Qmin.en_real()}\n"
@@ -774,18 +769,14 @@ class CargaIdeal(Elemento):
 
     def __init__(self, nombre, *, bp, Pn, Qn, **kwargs):
         self.bp = bp
-        self.S = S("Q", complex(Pn, Qn) / bp.Sb, bp)
+        self.S = S("S", complex(Pn, Qn) / bp.Sb, bp)
         super().__init__(nombre, **kwargs)
 
     def __str__(self):
-        return f"{self.nombre}: ({self.bp.nombre})\n" f" Valores PU:\n" f"  {self.S}\n"
+        return f"{self.nombre}: ({self.bp.nombre})\n" f"  {self.S}\n"
 
     def en_real(self):
-        return (
-            f"{self.nombre}: ({self.bp.nombre})\n"
-            f" Valores Reales:\n"
-            f"  {self.S.en_real()}\n"
-        )
+        return f"{self.nombre}: ({self.bp.nombre})\n" f"  {self.S.en_real()}\n"
 
 
 def test():
