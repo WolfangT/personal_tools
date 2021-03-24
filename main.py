@@ -2,21 +2,18 @@ from tools import *
 
 
 def levi():
+    print("Datos Levi")
     Sb = 100 * 10 ** 6
     Vb = 230000
-    print(B1 := Barra("Birch", Sb=Sb, Vb=Vb))
-    B2 = Barra("Elm", Sb=Sb, Vb=Vb)
-    B3 = Barra("Pine", Sb=Sb, Vb=Vb)
-    B4 = Barra("Maple", Sb=Sb, Vb=Vb)
+    print(B1 := Barra("B1", Sb=Sb, Vb=Vb))
+    B2 = Barra("B2", Sb=Sb, Vb=Vb)
+    B3 = Barra("B3", Sb=Sb, Vb=Vb)
+    B4 = Barra("B4", Sb=Sb, Vb=Vb)
     print(B5 := Barra("B5", Sb=Sb, Vb=Vb * 115 / 230))
     print(L12 := Linea("L12", R=0.01008, X=0.05040, G=0, B=0.05125 * 2, bp=B1, bs=B2))
-    # print(L12.flujo_potencias())
     print(L13 := Linea("L13", R=0.00744, X=0.03720, G=0, B=0.03875 * 2, bp=B1, bs=B3))
-    # print(L13.flujo_potencias())
     print(L24 := Linea("L24", R=0.00744, X=0.03720, G=0, B=0.03875 * 2, bp=B2, bs=B4))
-    # print(L24.flujo_potencias())
     print(L34 := Linea("L34", R=0.01272, X=0.06360, G=0, B=0.06375 * 2, bp=B3, bs=B4))
-    # print(L34.flujo_potencias())
     print(
         TX1 := TransformadorTap(
             "TX53",
@@ -58,25 +55,45 @@ def levi():
     print(C5 := CargaIdeal("C5", bp=B5, Pn=200 * 10 ** 6, Qn=123.94 * 10 ** 6))
     print("Matris Admitancias")
     print(
-        Ym := np.matrix(
+        Ym := np.array(
             [
                 [L12.Yp0 + L12.Yps + L13.Yp0 + L13.Yps, -L12.Yps, -L13.Yps, 0, 0],
                 [-L12.Yps, L12.Ys0 + L12.Yps + L24.Yp0 + L24.Yps, 0, -L24.Yps, 0],
                 [
                     -L13.Yps,
                     0,
-                    L13.Yp0 + L13.Ys0 + L34.Yp0 + L34.Yps + TX1.Yps + TX1.Ys0,
+                    L13.Yps + L13.Ys0 + L34.Yps + L34.Yp0 + TX1.Yps + TX1.Ys0,
                     -L34.Yps,
                     -TX1.Yps,
                 ],
                 [0, -L24.Yps, -L34.Yps, L24.Yps + L24.Ys0 + L34.Yps + L34.Ys0, 0],
-                [0, 0, -TX1.Yps, 0, TX1.Yps + TX1.Ys0 + Cx.Yn],
+                [0, 0, -TX1.Yps, 0, TX1.Yps + TX1.Yp0 + Cx.Yn],
             ]
         )
     )
+    print()
+    print(
+        GS := GaussSiedel(
+            [B1, B2, B3, B4, B5],
+            [1 + 0j, None, None, G2.V, None],
+            [None, -C2.S.real, -C3.S.real, G2.P - C4.S.real, -C5.S.real],
+            [
+                None,
+                complex(0, -C2.S.imag),
+                complex(0, -C3.S.imag),
+                None,
+                complex(0, -C5.S.imag),
+            ],
+            1.6,
+            Ym,
+        )
+    )
+    print(GS.iteracion())
+    print(GS.iteracion())
 
 
 def wolfang():
+    print("Datos Wolfang")
     Sb = 100 * 10 ** 6
     Vb1 = 230000
     Vb5 = 161000
@@ -130,23 +147,42 @@ def wolfang():
     print(C5 := CargaIdeal("C5", bp=B5, Pn=200 * 10 ** 6, Qn=123.94 * 10 ** 6))
     print("Matris Admitancias")
     print(
-        Ym := np.matrix(
+        Ym := np.array(
             [
                 [L12.Yp0 + L12.Yps + L13.Yp0 + L13.Yps, -L12.Yps, -L13.Yps, 0, 0],
                 [-L12.Yps, L12.Ys0 + L12.Yps + L24.Yp0 + L24.Yps, 0, -L24.Yps, 0],
                 [
                     -L13.Yps,
                     0,
-                    L13.Yp0 + L13.Ys0 + L34.Yp0 + L34.Yps + TX1.Yps + TX1.Ys0,
+                    L13.Yps + L13.Ys0 + L34.Yps + L34.Yp0 + TX1.Yps + TX1.Ys0,
                     -L34.Yps,
                     -TX1.Yps,
                 ],
                 [0, -L24.Yps, -L34.Yps, L24.Yps + L24.Ys0 + L34.Yps + L34.Ys0, 0],
-                [0, 0, -TX1.Yps, 0, TX1.Yps + TX1.Ys0 + Cx.Yn],
+                [0, 0, -TX1.Yps, 0, TX1.Yps + TX1.Yp0 + Cx.Yn],
             ]
         )
     )
+    print()
+    print(
+        GS := GaussSiedel(
+            [B1, B2, B3, B4, B5],
+            [1 + 0j, None, None, G2.V, None],
+            [None, -C2.S.real, -C3.S.real, G2.P - C4.S.real, -C5.S.real],
+            [
+                None,
+                -C2.S.imag * 1j,
+                -C3.S.imag * 1j,
+                None,
+                -C5.S.imag * 1j,
+            ],
+            1.6,
+            Ym,
+        )
+    )
+    print(GS.iteracion())
+    print(GS.iteracion())
 
 
 if __name__ == "__main__":
-    wolfang()
+    levi()

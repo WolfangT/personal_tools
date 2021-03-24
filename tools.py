@@ -30,6 +30,12 @@ def rect(mag, deg):
     return cmath.rect(mag, radians(deg))
 
 
+def ang(val):
+    """regresa el angulo en grados"""
+    mag, rad = cmath.polar(val)
+    return degrees(rad)
+
+
 def inv(val):
     """invierte el val"""
     return 1 / val
@@ -57,18 +63,6 @@ def display_rect(cmplx, u_real="", u_imag="J", u_fin=""):
 def cambio_base(val, Sn, Vn, Sb, Vb):
     """Cabio de Base de valores nominales a valores bases"""
     return val * ((Vn / Vb) ** 2) * (Sb / Sn)
-
-
-def tap_fic(Z, t):
-    Y = 1 / Z
-    return (
-        f"  Z / t:       {display_rect(Z/t)} Ω pu\n"
-        f"  Z / (1-t):   {display_rect(Z/(1-t))} Ω pu\n"
-        f"  Z / t(t-1):  {display_rect(Z/(t**2-t))} Ω pu\n"
-        f"  Y * t:       {display_rect(Y*t)} ℧ pu\n"
-        f"  Y * (1-t):   {display_rect(Y*(1-t))} ℧ pu\n"
-        f"  Z * t(t-1):  {display_rect(Y*(t**2-t))} ℧ pu\n"
-    )
 
 
 # Clases de ayuda
@@ -193,6 +187,108 @@ class DeltaEstrella:
         )
 
 
+class GaussSiedel:
+    """"""
+
+    TIPOS = {1: "Compensación", 2: "Volt. Regulado", 3: "P - Q"}
+
+    def __init__(self, barras, Vn, Pn, Qn, alpha, Ym):
+        self.barras = barras
+        self.Vn = Vn
+        self.Qn = Qn
+        self.P = Pn
+        self.tipos = [1] + [2 if v else 3 for v in Vn[1:]]
+        self.alpha = alpha
+        self.Ym = Ym
+        self.iter = 0
+        self.V = [[v or 1 + 0j for v in self.Vn]]
+        self.Q = [[q or 0j for q in self.Qn]]
+
+    def __str__(self):
+        k = self.iter
+        lineas = "\n".join(
+            [
+                " | ".join(
+                    [
+                        f"{barra.nombre:2}",
+                        f"{display_rect(v)}",
+                        f"{p.real:11.06f}" if p else "-".center(11),
+                        f"{q.imag:11.06f}" if q else "-".center(11),
+                        f"{self.TIPOS[tipo]}",
+                    ]
+                )
+                for (barra, v, p, q, tipo) in zip(
+                    self.barras, self.V[k], self.P, self.Q[k], self.tipos
+                )
+            ]
+        )
+        return (
+            f"Metodo de Gauss Siedel - iter {self.iter}: (α={self.alpha})\n"
+            " # |               V               |      P      |      Q      |  Tipo\n"
+            f"{lineas}\n"
+        )
+
+    def calcQ(self, k, i):
+        return (
+            -(
+                self.V[k - 1][i].conjugate()
+                * (
+                    sum(self.Ym[i][j] * self.V[k][j] for j in range(i))
+                    + sum(
+                        self.Ym[i][j] * self.V[k - 1][j]
+                        for j in range(i, len(self.barras))
+                    )
+                )
+            ).imag
+            * 1j
+        )
+
+    def calcV(self, k, i, Q=None):
+        Q = Q or self.Qn
+        return (
+            1
+            / self.Ym[i][i]
+            * (
+                ((self.P[i] - Q[i]) / self.V[k - 1][i].conjugate())
+                - sum(self.Ym[i][j] * self.V[k][j] for j in range(i))
+                - sum(
+                    self.Ym[i][j] * self.V[k - 1][j]
+                    for j in range(i + 1, len(self.barras))
+                )
+            )
+        )
+
+    def acel(self, Vv, Vn):
+        return Vv + self.alpha * (Vn - Vv)
+
+    def iteracion(self):
+        self.iter += 1
+        k = self.iter
+        self.V.append(
+            [
+                self.V[k - 1][i] if self.tipos[i] in (1, 2) else None
+                for i, b in enumerate(self.barras)
+            ]
+        )
+        self.Q.append(
+            [
+                self.Q[k - 1][i] if self.tipos[i] == 3 else None
+                for i, b in enumerate(self.barras)
+            ]
+        )
+        for i, barra in enumerate(self.barras):
+            if self.tipos[i] == 1:
+                continue
+            elif self.tipos[i] == 2:
+                self.Q[k][i] = self.calcQ(k, i)
+                self.Q[k][i] = self.acel(self.Q[k - 1][i], self.Q[k][i])
+                self.V[k][i] = rect(abs(self.V[k][i]), ang(self.calcV(k, i, self.Q[k])))
+            elif self.tipos[i] == 3:
+                self.V[k][i] = self.calcV(k, i)
+                self.V[k][i] = self.acel(self.V[k - 1][i], self.V[k][i])
+        return str(self)
+
+
 def ModeloPI(bp, bs, Yp, Yps, Ys):
     """Calcula el flujo de corriente y potencia en una serie de admitancias en forma de pi"""
     Yp0 = Y("Yp0", Yp, bp)
@@ -222,6 +318,18 @@ def ModeloPI(bp, bs, Yp, Yps, Ys):
     I [Yp0]   [Ys0] I
     ↓   |       |   ↓
       --+-------+--"""
+    )
+
+
+def tap_fic(Z, t):
+    Y = 1 / Z
+    return (
+        f"  Z / t:       {display_rect(Z/t)} Ω pu\n"
+        f"  Z / (1-t):   {display_rect(Z/(1-t))} Ω pu\n"
+        f"  Z / t(t-1):  {display_rect(Z/(t**2-t))} Ω pu\n"
+        f"  Y * t:       {display_rect(Y*t)} ℧ pu\n"
+        f"  Y * (1-t):   {display_rect(Y*(1-t))} ℧ pu\n"
+        f"  Z * t(t-1):  {display_rect(Y*(t**2-t))} ℧ pu\n"
     )
 
 
@@ -710,7 +818,7 @@ class BancoCapasitores(Elemento):
         self.Vn = V("Vn", Vn, self.bp)
         self.In = I("In", self.Sn / sqrt(3) / self.Vn, self.bp)
         self.Zn = Z("Zn", self.Vn ** 2 / self.Sn, self.bp)
-        self.Yn = Z("Yn", 1 / self.Zn, self.bp)
+        self.Yn = Y("Yn", 1 / self.Zn, self.bp)
         super().__init__(nombre, **kwargs)
 
     def __str__(self):
