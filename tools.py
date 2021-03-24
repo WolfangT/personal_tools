@@ -9,6 +9,8 @@ import numpy as np
 from math import sqrt, atan
 from cmath import pi
 
+np.set_printoptions(precision=2, suppress=True, linewidth=120)
+
 
 # Funciones de alluda
 
@@ -191,6 +193,104 @@ class DeltaEstrella:
         )
 
 
+def ModeloPI(bp, bs, Yp, Yps, Ys):
+    """Calcula el flujo de corriente y potencia en una serie de admitancias en forma de pi"""
+    Yp0 = Y("Yp0", Yp, bp)
+    Yps = Y("Yps", Yps, bp)
+    Ys0 = Y("Ys0", Ys, bp)
+    Ip0 = I("Ip0", bp.V * Yp0, bp)
+    Is0 = I("Is0", bs.V * Ys0, bp)
+    Ips = I("Ips", (bp.V - bs.V) * Yps, bp)
+    Sps = S("Sps", bp.V * (Ip0 + Ips).conjugate(), bp)
+    Ssp = S("Ssp", bs.V * (Is0 - Ips).conjugate(), bp)
+    Sper = S("Sper", Sps + Ssp, bp)
+    return (
+        f"  {Yp0}\n"
+        f"  {Yps}\n"
+        f"  {Ys0}\n"
+        f"  {Ip0}\n"
+        f"  {Is0}\n"
+        f"  {Ips}\n"
+        f"  {Sps}\n"
+        f"  {Ssp}\n"
+        f"  {Sper}"
+        f"""
+    {bp.nombre}             {bs.nombre}
+    P     → I →     S
+      --+-[Yps]-+-- 
+    ↓   |       |   ↓
+    I [Yp0]   [Ys0] I
+    ↓   |       |   ↓
+      --+-------+--"""
+    )
+
+
+# clases de Valores
+
+
+class Valor(complex):
+    TIPOS = {
+        "S": (("W", "VAR", "VA"), "rect"),
+        "V": ((None, None, "V"), "polar"),
+        "I": ((None, None, "A"), "polar"),
+        "Z": ((None, None, "Ω"), "rect"),
+        "Y": ((None, None, "℧"), "rect"),
+    }
+    TIPO = None
+
+    def __new__(cls, name, comp, barra=None):
+        return super().__new__(cls, comp)
+
+    def __init__(self, name, comp, barra=None):
+        self.name = name
+        self.unidad = self.TIPOS[self.TIPO][0] if self.TIPO else ("", " J", "")
+        self.muestra = self.TIPOS[self.TIPO][1] if self.TIPO else "rect"
+        self.barra = barra
+        super().__init__()
+
+    def __str__(self):
+        u_fin = self.unidad[2] + (" pu" if self.barra else "")
+
+        if self.muestra == "rect":
+            if self.unidad[:2] == (None, None):
+                val = display_rect(self, u_fin=u_fin)
+            else:
+                u_r = self.unidad[0] + (" pu" if self.barra else "")
+                u_i = self.unidad[1] + (" pu" if self.barra else "")
+                val = display_rect(self, u_r, u_i)
+        elif self.muestra == "polar":
+            val = display_polar(self, u_fin)
+        return f"{self.name}: {val}"
+
+    def en_real(self):
+        if self.barra:
+            base = getattr(self.barra, self.TIPO + "b")
+            valor = self * base
+        else:
+            valor = self
+        return self.__class__(self.name, valor).__str__()
+
+
+class S(Valor):
+    TIPO = "S"
+
+
+class V(Valor):
+    TIPO = "V"
+
+
+class I(Valor):
+    TIPO = "I"
+
+
+class Z(Valor):
+    TIPO = "Z"
+
+
+class Y(Valor):
+    TIPO = "Y"
+
+
 # Clases de elementos de potencia
 
 
@@ -218,12 +318,13 @@ class Barra(Elemento):
         Vb: Voltaje Base
     """
 
-    def __init__(self, nombre, *, Sb, Vb, Ib=None, Zb=None, Yb=None):
+    def __init__(self, nombre, *, Sb, Vb, Ib=None, Zb=None, Yb=None, V=None):
         self.Sb = Sb
         self.Vb = Vb
         self.Ib = Ib or self.Sb / self.Vb / sqrt(3)
         self.Zb = Zb or self.Vb ** 2 / self.Sb
         self.Yb = Yb or 1 / self.Zb
+        self.V = V
         super().__init__(nombre)
 
     def __str__(self):
@@ -263,25 +364,81 @@ class Linea(Elemento):
     Interconecta dos barras con los mismos valores bases
 
     Args:
+        bp: Barra del lado primario
+        bp: Barra del lado secundario
+        R: Paramtro resistivo en serie
+        X: Paramtro inductivo en serie
+        G: Paramtro conductivo en paralelo
+        B: Paramtro suceptivo en paralelo
+    """
+
+    def __init__(self, nombre, *, bp, bs, R, X, G, B):
+        super().__init__(nombre)
+        self.bp = bp
+        self.bs = bs
+        self.R = Z("R", complex(R, 0), self.bp)
+        self.X = Z("X", complex(0, X), self.bp)
+        self.G = Y("G", complex(G, 0), self.bp)
+        self.B = Y("B", complex(0, B), self.bp)
+        self.Yps = Y("Yps", 1 / (self.R + self.X), self.bp)
+        self.Yp0 = Y("Yp0", (self.G + self.B) / 2, self.bp)
+        self.Ys0 = Y("Ys0", (self.G + self.B) / 2, self.bp)
+
+    def __str__(self):
+        return (
+            f"{self.nombre}:\n"
+            f" Valores PU:\n"
+            f"  {self.R}\n"
+            f"  {self.X}\n"
+            f"  {self.G}\n"
+            f"  {self.B}\n"
+            f" Valores Reales:\n"
+            f"  {self.R.en_real()}\n"
+            f"  {self.X.en_real()}\n"
+            f"  {self.G.en_real()}\n"
+            f"  {self.B.en_real()}\n"
+            f" Modelo Admitancias en PU:\n"
+            f"  {self.bp.nombre} -> {self.bs.nombre}: {self.Yps}\n"
+            f"  {self.bp.nombre} -> 0: {self.Yp0}\n"
+            f"  {self.bs.nombre} -> 0: {self.Ys0}\n"
+            f" Modelo Admitancias en Real:\n"
+            f"  {self.bp.nombre} -> {self.bs.nombre}: {self.Yps.en_real()}\n"
+            f"  {self.bp.nombre} -> 0: {self.Yp0.en_real()}\n"
+            f"  {self.bs.nombre} -> 0: {self.Ys0.en_real()}\n"
+        )
+
+    def modelo_admitancias(self):
+        return (
+            f"Flujo de Potencias en {self.nombre}:\n"
+            f"{ModeloPI(self.bp, self.bs, self.Yp0, self.Yps, self.Ys0)}\n"
+        )
+
+    def flujo_potencias(self):
+        return (
+            f"Flujo de Potencias en {self.nombre}:\n"
+            f"{ModeloPI(self.bp, self.bs, self.Yp0, self.Yps, self.Ys0)}\n"
+        )
+
+
+class LineaReal(Linea):
+    """Una Linea Mediana de transmicion trifasica
+
+    Usa los valores absolutos por kilometro
+
+    Args:
         Sn: Potencia Nominal
         Vn: Voltaje Nominal
         In: Corriente Nominal
-
         L: Longitud (Kilometros)
-
         Rn: Parametro de Resistencia de la linea en valor absoluto (por kilmetro)
         Xn: Parametro de Reactancia de la linea en valor absoluto (por kilmetro)
         Gn: Parametro de Conductancia de la linea en valor absoluto (por kilmetro)
         Bn: Parametro de Suceptancia de la linea en valor absoluto (por kilmetro)
-
-        bp: Barra del lado primario
-        bp: Barra del lado secundario
     """
 
     def __init__(
         self, nombre, *, Rn, Xn, Gn, Bn, bp, bs, L=1, Sn=None, Vn=None, In=None
     ):
-        super().__init__(nombre)
         self.Sn = Sn
         self.Vn = Vn
         self.In = In
@@ -290,30 +447,15 @@ class Linea(Elemento):
         self.Xn = Xn * L
         self.Gn = Gn * L
         self.Bn = Bn * L
-        self.bp = bp
-        self.bs = bs
-        self.R = self.Rn / self.bp.Zb
-        self.X = self.Xn / self.bp.Zb
-        self.G = self.Gn / self.bp.Yb
-        self.B = self.Bn / self.bp.Yb
 
-    def __str__(self):
-        return (
-            (f"{self.nombre}:\n" f" Valores Nominales:\n")
-            + (f"  Sn:  {display_single(self.Sn)} VA\n" if self.Sn else "")
-            + (f"  Vn:  {display_single(self.Vn)} V\n" if self.Vn else "")
-            + (f"  In:  {display_single(self.In)} A\n" if self.In else "")
-            + (
-                f"  Rn: {display_single(self.Rn)} Ω\n"
-                f"  Xn: {display_single(self.Xn)} J Ω\n"
-                f"  Gn: {display_single(self.Gn)} ℧\n"
-                f"  Bn: {display_single(self.Bn)} J ℧\n"
-                f" Valores PU:\n"
-                f"  R: {display_single(self.R)} Ω pu\n"
-                f"  X: {display_single(self.X)} J Ω pu\n"
-                f"  G: {display_single(self.G)} ℧ pu\n"
-                f"  B: {display_single(self.B)} J ℧ pu\n"
-            )
+        super().__init__(
+            nombre,
+            bp=bp,
+            bs=bs,
+            R=self.Rn / self.bp.Zb,
+            X=self.Xn / self.bp.Zb,
+            G=self.Gn / self.bp.Yb,
+            B=self.Bn / self.bp.Yb,
         )
 
 
@@ -407,25 +549,32 @@ class TransformadorTap(TransformadorSimple):
         self.t = 1 + (self.dt * self.pos)
         self.Zs = self.Zp * self.t ** 2
         self.Ys = 1 / self.Zs
+        self.Yps = Y("Y*t", self.Yp * self.t, self.bp)
+        self.Ys0 = Y("Y*(1-t)", self.Yp * (1 - self.t), self.bp)
+        self.Yp0 = Y("Y*t(t-1)", self.Yp * (self.t ** 2 - self.t), self.bp)
 
     def __str__(self):
         return (
             f"{self.nombre} (Tap {'+' if self.pos >=0 else '-'}{abs(self.pos)}):\n"
-            f"  Sn:  {display_single(self.Sn)} VA\n"
+            f"  Sn:    {display_single(self.Sn)} VA\n"
             f"  Vn:    {display_single(self.Vp)} / {display_single(self.Vs)} V\n"
             f"  Bases: {self.bp.nombre:>11s} / {self.bs.nombre:>11s}\n"
-            f"  t: {self.t}\n"
+            f"  t:     {self.t}\n"
             f"  Zev: {display_polar(self.Zev)} Ω pu\n"
             f"  Zp:  {display_rect(self.Zp)} Ω pu\n"
             f"  Zs:  {display_rect(self.Zs)} Ω pu\n"
             f"  Yp:  {display_rect(self.Yp)} ℧ pu\n"
             f"  Ys:  {display_rect(self.Ys)} ℧ pu\n"
-            f"  Ze / t:       {display_rect(self.Zp/self.t)} Ω pu\n"
-            f"  Ze / (1-t):   {display_rect(self.Zp/(1-self.t))} Ω pu\n"
-            f"  Ze / t(t-1):  {display_rect(self.Zp/(self.t**2-self.t))} Ω pu\n"
-            f"  Ye * t:       {display_rect(self.Yp*self.t)} ℧ pu\n"
-            f"  Ye * (1-t):   {display_rect(self.Yp*(1-self.t))} ℧ pu\n"
-            f"  Ze * t(t-1):  {display_rect(self.Yp*(self.t**2-self.t))} ℧ pu\n"
+            f" Modelo Admitancias:\n"
+            f"  {self.Yps}\n"
+            f"  {self.Yp0}\n"
+            f"  {self.Ys0}\n"
+        )
+
+    def flujo_potencias(self):
+        return (
+            f"Flujo de Potencias en {self.nombre}:\n"
+            f"{ModeloPI(self.bp, self.bs, self.Yp0, self.Yps, self.Ys0)}\n"
         )
 
 
@@ -534,73 +683,99 @@ class TransformadorTriple(Elemento):
         )
 
 
-class Valor(complex):
-    TIPOS = {
-        "S": (("W", "VAR", "VA"), "rect"),
-        "V": ((None, None, "V"), "polar"),
-        "I": ((None, None, "A"), "polar"),
-        "Z": ((None, None, "Ω"), "rect"),
-        "Y": ((None, None, "℧"), "rect"),
-    }
-    TIPO = None
+class BancoCapasitores(Elemento):
+    """Banco de Capasitores conectados a Tierra"""
 
-    def __new__(cls, name, comp, barra=None):
-        return super().__new__(cls, comp)
-
-    def __init__(self, name, comp, barra=None):
-        self.name = name
-        self.unidad = self.TIPOS[self.TIPO][0] if self.TIPO else ("", " J", "")
-        self.muestra = self.TIPOS[self.TIPO][1] if self.TIPO else "rect"
-        self.barra = barra
-        super().__init__()
+    def __init__(self, nombre, *, bp, Sn, Vn, pj, **kwargs):
+        self.bp = bp
+        self.Sn = S("Sn", Sn + abs(Sn) * pj, bp)
+        self.Vn = V("Vn", Vn, bp)
+        self.In = I("In", self.Sn / sqrt(3) / self.Vn, bp)
+        self.Zn = Z("Zn", self.Vn / self.In)
+        self.Yn = Z("Yn", 1 / self.Zn)
+        super().__init__(nombre, **kwargs)
 
     def __str__(self):
-        u_fin = self.unidad[2] + (" pu" if self.barra else "")
-
-        if self.muestra == "rect":
-            if self.unidad[:2] == (None, None):
-                val = display_rect(self, u_fin=u_fin)
-            else:
-                u_r = self.unidad[0] + (" pu" if self.barra else "")
-                u_i = self.unidad[1] + (" pu" if self.barra else "")
-                val = display_rect(self, u_r, u_i)
-        elif self.muestra == "polar":
-            val = display_polar(self, u_fin)
-        return f"{self.name}: {val}"
-
-    def absoluto(self):
-        if self.barra:
-            base = getattr(self.barra, self.TIPO + "b")
-            valor = self * base
-        else:
-            valor = self
-        return self.__class__(self.name, valor).__str__()
-
-
-class S(Valor):
-    TIPO = "S"
-
-
-class V(Valor):
-    TIPO = "V"
-
-
-class I(Valor):
-    TIPO = "I"
-
-
-class Z(Valor):
-    TIPO = "Z"
-
-
-class Y(Valor):
-    TIPO = "Y"
+        return (
+            f"{self.nombre}:\n"
+            f" Valores PU:\n"
+            f"  {self.Sn}\n"
+            f"  {self.Vn}\n"
+            f"  {self.In}\n"
+            f"  {self.Zn}\n"
+            f"  {self.Yn}\n"
+            f" Valores Reales:\n"
+            f"  {self.Sn.en_real()}\n"
+            f"  {self.Vn.en_real()}\n"
+            f"  {self.In.en_real()}\n"
+            f"  {self.Zn.en_real()}\n"
+            f"  {self.Yn.en_real()}\n"
+        )
 
 
 def test():
     r = DeltaEstrella("N1", "N2", "N3")
     r.impedanciaDelta(Zc=0.25j, Zb=0.4j, Za=0.25j)
     print(r)
+
+
+def main():
+    Sb = 100 * 10 ** 6
+    Vb = 230000
+    print(B1 := Barra("Birch", Sb=Sb, Vb=Vb))
+    B2 = Barra("Elm", Sb=Sb, Vb=Vb)
+    B3 = Barra("Pine", Sb=Sb, Vb=Vb)
+    B4 = Barra("Maple", Sb=Sb, Vb=Vb)
+    print(B5 := Barra("B5", Sb=Sb, Vb=Vb * 115 / 230))
+    print(L12 := Linea("L12", R=0.01008, X=0.05040, G=0, B=0.05125 * 2, bp=B1, bs=B2))
+    # print(L12.flujo_potencias())
+    print(L13 := Linea("L13", R=0.00744, X=0.03720, G=0, B=0.03875 * 2, bp=B1, bs=B3))
+    # print(L13.flujo_potencias())
+    print(L24 := Linea("L24", R=0.00744, X=0.03720, G=0, B=0.03875 * 2, bp=B2, bs=B4))
+    # print(L24.flujo_potencias())
+    print(L34 := Linea("L34", R=0.01272, X=0.06360, G=0, B=0.06375 * 2, bp=B3, bs=B4))
+    # print(L34.flujo_potencias())
+    print(
+        TX1 := TransformadorTap(
+            "TX 5-3",
+            dt=0.2 / 32,
+            pos=+12,
+            Sn=310 * 10 ** 6,
+            Vp=115000,
+            Vs=230000,
+            Zev=0.0625,
+            rel=3.487,
+            bp=B5,
+            bs=B3,
+        )
+    )
+    # print(TX1.flujo_potencias())
+    print(
+        C1 := BancoCapasitores(
+            "C 5-0",
+            bp=B5,
+            Sn=57.5j * 10 ** 6,
+            Vn=TX1.Vp,
+            pj=0.03,
+        )
+    )
+    print(
+        Ym := np.matrix(
+            [
+                [L12.Yp0 + L12.Yps + L13.Yp0 + L13.Yps, -L12.Yps, -L13.Yps, 0, 0],
+                [-L12.Yps, L12.Ys0 + L12.Yps + L24.Yp0 + L24.Yps, 0, -L24.Yps, 0],
+                [
+                    -L13.Yps,
+                    0,
+                    L13.Yp0 + L13.Ys0 + L34.Yp0 + L34.Yps + TX1.Yps + TX1.Yp0,
+                    -L34.Yps,
+                    -TX1.Yps,
+                ],
+                [0, -L24.Yps, -L34.Yps, L24.Yps + L24.Ys0 + L34.Yps + L34.Ys0, 0],
+                [0, 0, -TX1.Yps, 0, TX1.Yps + TX1.Ys0 + C1.Yn],
+            ]
+        )
+    )
 
 
 # Comienzo
