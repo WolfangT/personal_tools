@@ -1,4 +1,3 @@
-
 class Element:
     def __init__(self, *, Sn=None, Sb=None, Vb=None, Ib=None, Zb=None, **kwargs):
         self.Sn = Sn

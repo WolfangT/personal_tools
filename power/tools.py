@@ -887,6 +887,18 @@ class CargaIdeal(Elemento):
         return f"{self.nombre}: ({self.bp.nombre})\n" f"  {self.S.en_real()}\n"
 
 
+# Componentes simetricas
+
+a = rect(1, 120)
+Tfs = np.array(
+    [
+        [1, 1, 1],
+        [a ** 2, a, 1],
+        [a, a ** 2, 1],
+    ]
+)
+
+
 def test():
     r = DeltaEstrella("N1", "N2", "N3")
     r.impedanciaDelta(Zc=0.25j, Zb=0.4j, Za=0.25j)

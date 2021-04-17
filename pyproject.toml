@@ -1,0 +1,85 @@
+[build-system]
+requires = ["setuptools >= 40.6.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "power"
+version = "0.2"
+description = "Wolfang's Personal Tools"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "GPL-3.0-or-later"}
+authors = [
+  {name = "Wolfang Torres", email = "wolfang.torres@gmail.com"},
+]
+dynamic = ["dependencies", "optional-dependencies"]
+
+[project.urls]
+repository = "https://github.com/WolfangT/personal_tools"
+
+[tool.black]
+line-length = 88
+include = '\.pyi?$'
+exclude = '''
+(
+    \.eggs
+  | \.git
+  | \.venv
+  | build
+  | dist
+)
+'''
+
+[tool.isort]
+src_paths = ["power"]
+skip_glob = [".git", "__pycache__", ".vscode", "*venv", "build", "dist", "old", "*.egg-info"]
+line_length = 88
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+verbose = false
+case_sensitive = true
+length_sort = false
+balanced_wrapping = true
+atomic = true
+import_heading_stdlib = "Standard Library"
+import_heading_thirdparty = "Pip"
+import_heading_localfolder = "Local"
+sections = ["FUTURE", "STDLIB", "THIRDPARTY", "GTO", "FIRSTPARTY", "LOCALFOLDER"]
+
+[tool.pylint.messages_control]
+disable = "C0330, C0326"
+
+[tool.pylint.format]
+max-line-length = "88"
+
+[tool.pylint.reports]
+output-format="text"
+msg-template="{path}:{module}:{line}: [{msg_id}({symbol}), {obj}] {msg}"
+
+[tool.pylint.logging]
+logging-format-style="new"
+logging-modules="logging"
+
+[tool.flakehell]
+max_line_length = 88
+format = "grouped"
+show_source = false
+exclude = [
+    ".git",
+    "__pycache__",
+    ".vscode",
+    "*venv",
+    "build",
+    "dist",
+    "old",
+    "*.egg-info",
+]
+
+[tool.flakehell.plugins]
+mccabe = ["+C*"]
+pycodestyle = ["+E*", "+W*", "-E203", "-E501", "-W503"]
+pyflakes = ["+F*"]
+flake8-bugbear = ["+*", "+B950"]
