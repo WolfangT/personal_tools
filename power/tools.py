@@ -53,11 +53,11 @@ def display_single(val):
 def display_polar(cmplx, unit=""):
     mag, rad = cmath.polar(cmplx)
     deg = degrees(rad)
-    return f"{round(mag,6):11} ∠ {round(deg, 2):7}° {unit}"
+    return f"{mag:11.6f} ∠ {deg:7.2f}° {unit}"
 
 
 def display_rect(cmplx, u_real="", u_imag="J", u_fin=""):
-    return f"{round(cmplx.real,6):11} {u_real} + {round(cmplx.imag, 6):11} {u_imag} {u_fin}"
+    return f"{cmplx.real:11.6f} {u_real} + {cmplx.imag:11.6f} {u_imag} {u_fin}"
 
 
 def cambio_base(val, Sn, Vn, Sb, Vb):
@@ -210,8 +210,8 @@ class GaussSiedel:
             [
                 " | ".join(
                     [
-                        f"{barra.nombre:2}",
-                        f"{display_rect(v)}",
+                        f"{barra.nombre:3}",
+                        f"{display_polar(v)}",
                         f"{p.real:11.06f}" if p else "-".center(11),
                         f"{q.imag:11.06f}" if q else "-".center(11),
                         f"{self.TIPOS[tipo]}",
@@ -224,8 +224,10 @@ class GaussSiedel:
         )
         return (
             f"Metodo de Gauss Siedel - iter {self.iter}: (α={self.alpha})\n"
-            " # |               V               |      P      |      Q      |  Tipo\n"
-            f"{lineas}\n"
+            + " | ".join(
+                [" # ", "V".center(23), "P".center(11), "Q".center(11), " Tipo "]
+            )
+            + f"\n{lineas}\n"
         )
 
     def calcQ(self, k, i):

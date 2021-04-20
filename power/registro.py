@@ -530,8 +530,8 @@ def levi():
             Ym,
         )
     )
-    print(GS.iteracion())
-    print(GS.iteracion())
+    for _i in range(2):
+        print(GS.iteracion())
 
 
 def wolfang():
@@ -549,6 +549,10 @@ def wolfang():
     print(L13 := Linea("L13", R=0.00744, X=0.03720, G=0, B=0.03875 * 2, bp=B1, bs=B3))
     print(L24 := Linea("L24", R=0.00744, X=0.03720, G=0, B=0.03875 * 2, bp=B2, bs=B4))
     print(L34 := Linea("L34", R=0.01272, X=0.06360, G=0, B=0.06375 * 2, bp=B3, bs=B4))
+    print(L12.en_real())
+    print(L13.en_real())
+    print(L24.en_real())
+    print(L34.en_real())
     print(
         TX1 := TransformadorTap(
             "TX1",
